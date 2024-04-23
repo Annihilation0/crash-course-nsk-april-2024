@@ -50,12 +50,12 @@ internal sealed class ProductsRepository
             await _context.Products.AddAsync(product);
             var res = await _context.SaveChangesAsync();
 
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
 
@@ -64,7 +64,7 @@ internal sealed class ProductsRepository
         var productToUpdate = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
 
         if (productToUpdate is null)
-            return new DbResult(DbResultStatus.NotFound);
+            return DbResult.NotFound();
 
         if(updateInfo.Name != null)
             productToUpdate.Name = updateInfo.Name;
@@ -78,12 +78,12 @@ internal sealed class ProductsRepository
         try
         {
             await _context.SaveChangesAsync();
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
 
@@ -92,19 +92,19 @@ internal sealed class ProductsRepository
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
 
         if (product is null)
-            return new DbResult(DbResultStatus.NotFound);
+            return DbResult.NotFound();
 
         try
         {
             _context.Products.Remove(product);
             await _context.SaveChangesAsync();
 
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
 }

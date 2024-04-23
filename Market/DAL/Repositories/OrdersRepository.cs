@@ -19,12 +19,12 @@ internal class OrdersRepository
             await _context.Orders.AddAsync(order);
             await _context.SaveChangesAsync();
 
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
 
@@ -33,19 +33,19 @@ internal class OrdersRepository
         var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order is null)
-            return new DbResult(DbResultStatus.NotFound);
+            return DbResult.NotFound();
 
         order.State = newState;
 
         try
         {
             await _context.SaveChangesAsync();
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
 
@@ -60,6 +60,6 @@ internal class OrdersRepository
         }
 
         var orders = await query.ToListAsync();
-        return new DbResult<IReadOnlyCollection<Order>>(orders, DbResultStatus.Ok);
+        return DbResult<IReadOnlyCollection<Order>>.Ok(orders);
     }
 }

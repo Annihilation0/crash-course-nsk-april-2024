@@ -26,14 +26,14 @@ internal sealed class CartsRepository
         var cart = await _context.Carts.FirstOrDefaultAsync(p => p.CustomerId == customerId);
         if (cart == null)
         {
-            return new DbResult(DbResultStatus.NotFound);
+            return DbResult.NotFound();
         }
 
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
 
         if (product == null)
         {
-            return new DbResult(DbResultStatus.NotFound);
+            return DbResult.NotFound();
         }
         
         try
@@ -49,12 +49,12 @@ internal sealed class CartsRepository
             }
             await _context.SaveChangesAsync();
 
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
     
@@ -64,7 +64,7 @@ internal sealed class CartsRepository
 
         if (cart == null)
         {
-            return new DbResult(DbResultStatus.NotFound);
+            return DbResult.NotFound();
         }
         
         try
@@ -72,12 +72,12 @@ internal sealed class CartsRepository
             cart.ProductIds = new List<Guid>();
             
             await _context.SaveChangesAsync();
-            return new DbResult(DbResultStatus.Ok);
+            return DbResult.Ok();
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
-            return new DbResult(DbResultStatus.UnknownError);
+            return DbResult.UnknownError();
         }
     }
 }
