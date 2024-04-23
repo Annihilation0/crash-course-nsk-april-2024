@@ -14,15 +14,20 @@ internal sealed class ProductsRepository
     }
 
     public async Task<DbResult<IReadOnlyCollection<Product>>> GetProductsAsync(
+        string? name = null, 
         Guid? sellerId = null, 
+        ProductCategory? category = null,
         int skip = 0,
         int take = 50)
     {
         IQueryable<Product> query = _context.Products;
 
-        // оставил такую реализацию для будущих фильтров
+        if (name is not null)
+            query = query.Where(p => p.Name == name);
         if (sellerId.HasValue)
             query = query.Where(p => p.SellerId == sellerId.Value);
+        if (category is not null)
+            query = query.Where(p => p.Category == category);
 
         var products = await query.Skip(skip).Take(take).ToListAsync();
 
@@ -31,60 +36,19 @@ internal sealed class ProductsRepository
 
     public async Task<DbResult<Product>> GetProductAsync(Guid productId)
     {
-        
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
-            
-            return product != null
-                ? new DbResult<Product>(product, DbResultStatus.Ok)
-                : new DbResult<Product>(null!, DbResultStatus.NotFound);
-        
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
+
+        return product != null
+            ? new DbResult<Product>(product, DbResultStatus.Ok)
+            : new DbResult<Product>(null!, DbResultStatus.NotFound);
     }
-    public async Task<DbResult<IQueryable<Product>>> GetProductAsync(string? productName,
-        SortType? sortType,
-        ProductCategory? category,
-        bool ascending = true,
-        int skip = 0,
-        int take = 50)
-    {
-            var filteredProduct = _context.Products.Select(p => p);
-            if (productName != null)
-            {
-                filteredProduct = filteredProduct.Where(p => p.Name == productName);
-            }
 
-            if (category.HasValue)
-            {
-                filteredProduct = filteredProduct.Where(p => p.Category == category);
-            }
-
-            if (sortType != null)
-            {
-                filteredProduct = sortType switch
-                {
-                    SortType.Name => !ascending
-                        ? filteredProduct.OrderByDescending(p => p.Name)
-                        : filteredProduct.OrderBy(p => p.Name),
-
-                    // SQLite does not support expressions of type 'decimal' in ORDER BY clauses.
-                    SortType.Price => !ascending
-                        ? filteredProduct.OrderByDescending(p => p.PriceInRubles)
-                        : filteredProduct.OrderBy(p => p.PriceInRubles),
-                };
-            }
-
-            filteredProduct = filteredProduct.Skip(skip).Take(take);
-            
-            return filteredProduct != null
-                ? new DbResult<IQueryable<Product>>(filteredProduct, DbResultStatus.Ok)
-                : new DbResult<IQueryable<Product>>(null!, DbResultStatus.NotFound);
-    }
-    
     public async Task<DbResult> CreateProductAsync(Product product)
     {
         try
         {
             await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
+            var res = await _context.SaveChangesAsync();
 
             return new DbResult(DbResultStatus.Ok);
         }

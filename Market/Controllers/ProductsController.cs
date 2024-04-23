@@ -2,13 +2,14 @@
 using Market.DAL.Repositories;
 using Market.DTO;
 using Market.Enums;
+using Market.Misc;
 using Market.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Market.Controllers;
 
 [ApiController]
-[Route("/v1/products")]
+[Route("products")]
 public sealed class ProductsController : ControllerBase
 {
     public ProductsController()
@@ -22,62 +23,59 @@ public sealed class ProductsController : ControllerBase
     public async Task<IActionResult> GetProductByIdAsync(Guid productId)
     {
         var productResult = await ProductsRepository.GetProductAsync(productId);
-        return DbResultIsSuccessful(productResult, out var error)
+        return ParserDbResult.DbResultIsSuccessful(productResult, out var error)
             ? new JsonResult(productResult.Result)
             : error;
     }
-    public class SearchProductDto
-    {
-        public string? ProductName { get; set; }
-        public SortType? SortType { get; set; }
-        public ProductCategory? Category { get; set; }
-        public bool Ascending { get; set; } = true;
-        public int Skip { get; set; } = 0;
-        public int Take { get; set; } = 50;
-    }
+
     [HttpPost("search")]
-    public async Task<IActionResult> SearchProductsAsync(
-        string? productName,
-        SortType? sortType,
-        ProductCategory? category,
-        bool ascending = true,
-        int skip = 0,
-        int take = 50)
+    public async Task<IActionResult> SearchProductsAsync([FromBody] SearchProductRequestDto requestInfo)
     {
-        var searchResult = await ProductsRepository.GetProductAsync(productName,sortType,category,ascending,skip,take);
-        return DbResultIsSuccessful(searchResult, out var error)
-            ? new JsonResult(searchResult.Result)
-            : error;
-            
-        //throw new NotImplementedException("Нужно реализовать позже");
+        var productsResult =
+            await ProductsRepository.GetProductsAsync(
+                requestInfo.ProductName,
+                category: requestInfo.Category,
+                skip: requestInfo.Skip,
+                take: requestInfo.Take);
+
+        if (!ParserDbResult.DbResultIsSuccessful(productsResult, out var error))
+            return error;
+
+        if (!requestInfo.SortType.HasValue)
+            return new JsonResult(productsResult.Result.Select(ProductDto.FromModel));
+
+        var productDtos = SortProducts(productsResult.Result, requestInfo.SortType.Value, requestInfo.Ascending)
+            .Select(ProductDto.FromModel);
+        return new JsonResult(productDtos);
     }
 
-    [HttpGet()]
+    [HttpGet]
     public async Task<IActionResult> GetSellerProductsAsync(
-        [FromRoute] Guid sellerId,
+        [FromQuery] Guid sellerId,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50)
     {
         var productsResult = await ProductsRepository.GetProductsAsync(sellerId: sellerId, skip: skip, take: take);
-        if (!DbResultIsSuccessful(productsResult, out var error))
+        if (!ParserDbResult.DbResultIsSuccessful(productsResult, out var error))
             return error;
 
         var productDtos = productsResult.Result.Select(ProductDto.FromModel);
         return new JsonResult(productDtos);
     }
 
-    [HttpPost()]
+    [HttpPost]
     public async Task<IActionResult> CreateProductAsync([FromBody] Product product)
     {
         var createResult = await ProductsRepository.CreateProductAsync(product);
 
-        return DbResultIsSuccessful(createResult, out var error)
-            ? new StatusCodeResult(StatusCodes.Status205ResetContent)
+        return ParserDbResult.DbResultIsSuccessful(createResult, out var error)
+            ? new StatusCodeResult(StatusCodes.Status201Created)
             : error;
     }
 
-    [HttpPut("{productId}")]
-    public async Task<IActionResult> UpdateProductAsync([FromRoute] Guid productId, [FromBody] UpdateProductRequestDto requestInfo)
+    [HttpPut("{productId:guid}")]
+    public async Task<IActionResult> UpdateProductAsync([FromRoute] Guid productId,
+        [FromBody] UpdateProductRequestDto requestInfo)
     {
         var updateResult = await ProductsRepository.UpdateProductAsync(productId, new ProductUpdateInfo
         {
@@ -87,8 +85,8 @@ public sealed class ProductsController : ControllerBase
             PriceInRubles = requestInfo.PriceInRubles
         });
 
-        return DbResultIsSuccessful(updateResult, out var error)
-            ? new StatusCodeResult(StatusCodes.Status404NotFound)
+        return ParserDbResult.DbResultIsSuccessful(updateResult, out var error)
+            ? Ok()
             : error;
     }
 
@@ -97,30 +95,25 @@ public sealed class ProductsController : ControllerBase
     {
         var deleteResult = await ProductsRepository.DeleteProductAsync(productId);
 
-        return DbResultIsSuccessful(deleteResult, out var error)
-            ? new StatusCodeResult(StatusCodes.Status405MethodNotAllowed)
+        return ParserDbResult.DbResultIsSuccessful(deleteResult, out var error)
+            ? Ok()
             : error;
     }
 
-    private static bool DbResultIsSuccessful(DbResult dbResult, out IActionResult error) =>
-        DbResultStatusIsSuccessful(dbResult.Status, out error);
-
-    private static bool DbResultIsSuccessful<T>(DbResult<T> dbResult, out IActionResult error) =>
-        DbResultStatusIsSuccessful(dbResult.Status, out error);
-
-    private static bool DbResultStatusIsSuccessful(DbResultStatus status, out IActionResult error)
+    private static IEnumerable<Product> SortProducts(IEnumerable<Product> products, SortType sortType,
+        bool ascending)
     {
-        error = null!;
-        switch (status)
+        switch (sortType)
         {
-            case DbResultStatus.Ok:
-                return true;
-            case DbResultStatus.NotFound:
-                error = new StatusCodeResult(StatusCodes.Status404NotFound);
-                return false;
+            case SortType.Name:
+                return ascending
+                    ? products.OrderBy(p => p.Name)
+                    : products.OrderByDescending(p => p.Name);
+            case SortType.Price:
             default:
-                error = new StatusCodeResult(StatusCodes.Status500InternalServerError);
-                return false;
+                return ascending
+                    ? products.OrderBy(p => p.PriceInRubles)
+                    : products.OrderByDescending(p => p.PriceInRubles);
         }
     }
 }
